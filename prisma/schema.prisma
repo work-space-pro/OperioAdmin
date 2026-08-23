@@ -1,0 +1,562 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AdminAccessConfig {
+  id        String   @id @default(uuid())
+  hashedKey String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminSession {
+  id        String   @id @default(uuid())
+  sessionId String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model LoginAttempt {
+  id          String   @id @default(uuid())
+  ipAddress   String?
+  attemptTime DateTime @default(now())
+  success     Boolean
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  eventType   String
+  entityType  String?
+  entityId    String?
+  description String
+  oldValue    String?
+  newValue    String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+}
+
+// ---------------------------------------------
+// PHASE 2: CORE ENTITIES
+// ---------------------------------------------
+
+model Client {
+  id                     String    @id @default(uuid())
+  clientType             String    // "Individual", "Company Representative"
+  fullName               String
+  mobileNumber           String?
+  whatsappNumber         String?
+  email                  String?
+  nationality            String?
+  dateOfBirth            DateTime?
+  gender                 String?
+  emiratesIdNumber       String?
+  eidIssueDate           DateTime?
+  eidExpiryDate          DateTime?
+  passportNumber         String?
+  passportIssueDate      DateTime?
+  passportExpiryDate     DateTime?
+  visaNumber             String?
+  visaIssueDate          DateTime?
+  visaExpiryDate         DateTime?
+  healthInsNumber        String?
+  healthInsIssueDate     DateTime?
+  healthInsExpiryDate    DateTime?
+  address                String?
+  preferredCommunication String?   // "Email", "WhatsApp", "Phone"
+  tags                   String?   // Comma separated or JSON string
+  notes                  String?
+  status                 String    @default("Active") // "Prospect", "Active", "Inactive", "Archived"
+  
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  archivedAt             DateTime?
+
+  companies              Company[]
+  bankAccounts           BankAccount[]
+  services               Service[]
+  documents              Document[]
+  actions                Action[]
+  portalUsers            PortalUser[]
+  applications           Application[]
+  clientRequests         ClientRequest[]
+  portalNotifications    PortalNotification[]
+}
+
+model Company {
+  id                     String    @id @default(uuid())
+  clientId               String
+  client                 Client    @relation(fields: [clientId], references: [id])
+  
+  legalName              String
+  tradeName              String?
+  companyType            String?
+  legalForm              String?
+  zoneType               String?   // "Mainland" or "Free Zone"
+  freeZoneName           String?
+  registeredEmirate      String?
+  
+  tradeLicenceNumber     String?
+  businessActivity       String?
+  licenceIssueDate       DateTime?
+  licenceExpiryDate      DateTime?
+  
+  estCardNumber          String?
+  estCardIssueDate       DateTime?
+  estCardExpiryDate      DateTime?
+  
+  vatTrn                 String?
+  vatRegistrationDate    DateTime?
+  corporateTaxRegNumber  String?
+  corporateTaxRegDate    DateTime?
+  
+  companyEmail           String?
+  companyMobile          String?
+  registeredAddress      String?
+  
+  financialYearStart     DateTime?
+  financialYearEnd       DateTime?
+  
+  status                 String    @default("Active") // "Under Formation", "Active", "Renewal Due", "Expired", "Suspended", "Closed"
+  notes                  String?
+  
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  archivedAt             DateTime?
+
+  personnel              CompanyPersonnel[]
+  bankAccounts           BankAccount[]
+  services               Service[]
+  documents              Document[]
+  employees              Employee[]
+  vatFilings             VATFiling[]
+  vehicles               Vehicle[]
+  drivers                Driver[]
+  applications           Application[]
+  clientRequests         ClientRequest[]
+}
+
+model CompanyPersonnel {
+  id                     String    @id @default(uuid())
+  companyId              String
+  company                Company   @relation(fields: [companyId], references: [id])
+  
+  fullName               String
+  designation            String?
+  ownershipPercentage    Float?
+  nationality            String?
+  mobile                 String?
+  email                  String?
+  
+  passportNumber         String?
+  passportExpiryDate     DateTime?
+  emiratesIdNumber       String?
+  emiratesIdExpiryDate   DateTime?
+  
+  isOwner                Boolean   @default(false)
+  isSignatory            Boolean   @default(false)
+  
+  signatureCardNumber    String?
+  signatureCardStatus    String?
+  signatureCardIssueDate DateTime?
+  signatureCardExpiryDate DateTime?
+  
+  notes                  String?
+  
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+}
+
+model BankAccount {
+  id                     String    @id @default(uuid())
+  clientId               String?
+  client                 Client?   @relation(fields: [clientId], references: [id])
+  companyId              String?
+  company                Company?  @relation(fields: [companyId], references: [id])
+  
+  bankName               String
+  accountName            String
+  accountNumber          String
+  iban                   String?
+  swiftCode              String?
+  branch                 String?
+  currency               String    @default("AED")
+  
+  accountStatus          String    @default("Active")
+  isPrimary              Boolean   @default(false)
+  openingDate            DateTime?
+  assistanceStatus       String?
+  notes                  String?
+  
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+}
+
+// ---------------------------------------------
+// PHASE 3: SERVICES & DOCUMENTS
+// ---------------------------------------------
+
+model Service {
+  id               String    @id @default(uuid())
+  clientId         String?
+  client           Client?   @relation(fields: [clientId], references: [id])
+  companyId        String?
+  company          Company?  @relation(fields: [companyId], references: [id])
+  
+  category         String    // "Setup", "Visa", "Tax", "PRO"
+  name             String
+  description      String?
+  
+  status           String    @default("Pending") // "Pending", "In Progress", "Completed", "Cancelled"
+  priority         String    @default("Normal")  // "High", "Normal", "Low"
+  
+  price            Float?
+  currency         String    @default("AED")
+  paymentStatus    String    @default("Unpaid")  // "Unpaid", "Partial", "Paid"
+  
+  startDate        DateTime?
+  targetCompletion DateTime?
+  actualCompletion DateTime?
+  
+  notes            String?
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  documents        Document[]
+  applications     Application[]
+}
+
+model Document {
+  id                 String       @id @default(uuid())
+  clientId           String?
+  client             Client?      @relation(fields: [clientId], references: [id])
+  companyId          String?
+  company            Company?     @relation(fields: [companyId], references: [id])
+  serviceId          String?
+  service            Service?     @relation(fields: [serviceId], references: [id])
+  employeeId         String?
+  employee           Employee?    @relation(fields: [employeeId], references: [id])
+  applicationId      String?
+  application        Application? @relation(fields: [applicationId], references: [id])
+  
+  title              String
+  documentType       String       // "Passport", "Visa", "Licence", "Contract", "Other"
+  fileUrl            String
+  fileSize           Int?
+  mimeType           String?
+  
+  issueDate          DateTime?
+  expiryDate         DateTime?
+  status             String       @default("Valid") // "Valid", "Expiring Soon", "Expired", "Archived"
+  verificationStatus String       @default("Verified") // "Pending", "Verified", "Rejected", "Replacement Required"
+  uploadedBy         String?      @default("Admin") // "Client", "Admin"
+  rejectionReason    String?
+  clientDownloadable Boolean      @default(true)
+  
+  version            Int          @default(1)
+  
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+// ---------------------------------------------
+// PHASE 4: TAX, COMPLIANCE, VISA & EMPLOYEES
+// ---------------------------------------------
+
+model Employee {
+  id               String    @id @default(uuid())
+  companyId        String
+  company          Company   @relation(fields: [companyId], references: [id])
+  
+  fullName         String
+  designation      String?
+  nationality      String?
+  dateOfBirth      DateTime?
+  gender           String?
+  mobile           String?
+  email            String?
+  
+  passportNumber   String?
+  passportIssueDate DateTime?
+  passportExpiry   DateTime?
+  
+  visaNumber       String?
+  visaIssueDate    DateTime?
+  visaExpiryDate   DateTime?
+  visaType         String?   // "Employment", "Partner", "Dependent"
+  uidNumber        String?
+  
+  eVisaIssueDate   DateTime?
+  eVisaExpiryDate  DateTime?
+  
+  emiratesId       String?
+  eidExpiryDate    DateTime?
+  
+  healthInsNumber  String?
+  healthInsExpiry  DateTime?
+  
+  iloeNumber       String?
+  iloeExpiry       DateTime?
+  
+  basicSalary      Float?
+  allowances       Float?
+  currency         String    @default("AED")
+  
+  status           String    @default("Active") // "Active", "Cancelled", "On Leave"
+  notes            String?
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  documents        Document[]
+}
+
+model VATFiling {
+  id               String    @id @default(uuid())
+  companyId        String
+  company          Company   @relation(fields: [companyId], references: [id])
+  
+  periodStart      DateTime
+  periodEnd        DateTime
+  dueDate          DateTime
+  
+  status           String    @default("Pending") // "Pending", "Preparing", "Submitted", "Paid"
+  
+  amountDue        Float?
+  amountPaid       Float?
+  paymentDate      DateTime?
+  referenceNumber  String?
+  
+  notes            String?
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+// ---------------------------------------------
+// PHASE 5: NOTIFICATIONS & REMINDERS
+// ---------------------------------------------
+
+model Action {
+  id               String    @id @default(uuid())
+  title            String
+  description      String?
+  
+  actionType       String    // "Follow-up", "Call", "Meeting", "Email", "Task", "Reminder", "Document follow-up", "Renewal follow-up"
+  
+  entityType       String?   // "Document", "Company", "Employee", "VATFiling", "Client"
+  entityId         String?
+  
+  clientId         String?
+  client           Client?   @relation(fields: [clientId], references: [id])
+  
+  dueDate          DateTime
+  dueTime          String?
+  
+  assignedUser     String?
+  priority         String    @default("Normal") // "High", "Normal", "Low"
+  status           String    @default("Pending") // "Pending", "In Progress", "Completed", "Overdue"
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Vehicle {
+  id                   String    @id @default(uuid())
+  companyId            String
+  company              Company   @relation(fields: [companyId], references: [id])
+  
+  regNo                String
+  tcNo                 String?
+  policyNo             String?
+  
+  regDate              DateTime?
+  expDate              DateTime?
+  insuranceIssueDate   DateTime?
+  insuranceExpDate     DateTime?
+  
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model Driver {
+  id               String    @id @default(uuid())
+  companyId        String
+  company          Company   @relation(fields: [companyId], references: [id])
+  
+  fullName         String
+  licenseIssueDate DateTime?
+  licenseExpDate   DateTime?
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Expense {
+  id              String    @id @default(uuid())
+  category        String    // "Government Fees", "Typing & Amer", "PRO & Courier", "Office & Rent", "Software & Utilities", "Salaries", "Other"
+  title           String
+  description     String?
+  amount          Float
+  currency        String    @default("AED")
+  expenseDate     DateTime  @default(now())
+  paymentMethod   String?   // "Bank Transfer", "Credit Card", "Cash", "Corporate Card"
+  receiptRef      String?
+  vendorName      String?
+  clientId        String?
+  companyId       String?
+  status          String    @default("Paid") // "Paid", "Pending", "Reimbursed"
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// ---------------------------------------------
+// PHASE 6: CLIENT PORTAL ARCHITECTURE
+// ---------------------------------------------
+
+model PortalUser {
+  id                   String               @id @default(uuid())
+  clientId             String
+  client               Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  email                String               @unique
+  passwordHash         String
+  fullName             String?
+  status               String               @default("Active") // "Active", "Suspended", "Invited", "Inactive"
+  
+  lastLogin            DateTime?
+  invitationToken      String?
+  invitationSentAt     DateTime?
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  sessions             PortalSession[]
+  applications         Application[]
+  requests             ClientRequest[]
+  notifications        PortalNotification[]
+}
+
+model PortalSession {
+  id           String     @id @default(uuid())
+  portalUserId String
+  portalUser   PortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+  sessionId    String     @unique
+  expiresAt    DateTime
+  createdAt    DateTime   @default(now())
+}
+
+model Application {
+  id                   String               @id @default(uuid())
+  applicationNumber    String               @unique // e.g. "APP-2026-0001"
+  clientId             String
+  client               Client               @relation(fields: [clientId], references: [id])
+  companyId            String?
+  company              Company?             @relation(fields: [companyId], references: [id])
+  serviceId            String?
+  service              Service?             @relation(fields: [serviceId], references: [id])
+  portalUserId         String?
+  portalUser           PortalUser?          @relation(fields: [portalUserId], references: [id])
+  
+  title                String
+  serviceCategory      String               // "Business Setup", "Visa & Immigration", "Tax & Accounting", "PRO Services", "Legal & Advisory", "Other"
+  serviceType          String               // Name of package/service
+  status               String               @default("Submitted") // "Draft", "Submitted", "Documents Required", "Under Review", "In Progress", "Awaiting Client", "Submitted to Authority", "Approved", "Completed", "Rejected", "Cancelled"
+  priority             String               @default("Normal")    // "High", "Normal", "Low"
+  
+  description          String?
+  contactPerson        String?
+  contactNumber        String?
+  preferredContact     String?              // "Email", "WhatsApp", "Phone"
+  
+  applicationSource    String               @default("PORTAL")    // "PORTAL" or "ADMIN"
+  assignedToId         String?              // Staff assignment
+  lastClientActivityAt DateTime?
+  lastAdminActivityAt  DateTime?
+  
+  submittedAt          DateTime             @default(now())
+  expectedCompletion   DateTime?
+  completedAt          DateTime?
+  
+  clientNotes          String?              // Visible to client
+  internalNotes        String?              // Admin private only
+  
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  documents            Document[]
+  messages             ApplicationMessage[]
+}
+
+model ApplicationMessage {
+  id            String      @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  senderType    String      // "CLIENT" or "ADMIN"
+  senderName    String
+  message       String
+  isInternal    Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+}
+
+model ClientRequest {
+  id            String           @id @default(uuid())
+  requestNumber String           @unique // e.g. "REQ-2026-0001"
+  clientId      String
+  client        Client           @relation(fields: [clientId], references: [id])
+  companyId     String?
+  company       Company?         @relation(fields: [companyId], references: [id])
+  portalUserId  String
+  portalUser    PortalUser       @relation(fields: [portalUserId], references: [id])
+  applicationId String?
+  
+  category      String           // "Application Support", "Document Update", "Renewal", "Account Support", "General Query", "Other"
+  subject       String
+  message       String
+  priority      String           @default("Normal") // "Low", "Normal", "High", "Urgent"
+  status        String           @default("Open")   // "Open", "In Progress", "Waiting for Client", "Resolved", "Closed"
+  
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  messages      RequestMessage[]
+}
+
+model RequestMessage {
+  id          String        @id @default(uuid())
+  requestId   String
+  request     ClientRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  senderType  String        // "CLIENT" or "ADMIN"
+  senderName  String
+  message     String
+  isInternal  Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+}
+
+model PortalNotification {
+  id                String      @id @default(uuid())
+  clientId          String
+  client            Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  portalUserId      String?
+  portalUser        PortalUser? @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+  
+  title             String
+  message           String
+  type              String      // "APPLICATION_STATUS", "DOCUMENT_REQUEST", "DOCUMENT_APPROVED", "RENEWAL_DUE", "MESSAGE_RECEIVED", "SYSTEM"
+  relatedEntityType String?     // "Application", "Document", "Renewal", "Request"
+  relatedEntityId   String?
+  isRead            Boolean     @default(false)
+  
+  createdAt         DateTime    @default(now())
+}
